@@ -1,0 +1,23 @@
+- name: mysql remote root
+  mysql_user: 
+    name: root 
+    password: ''
+    host: '%' 
+    priv: '*.*:ALL'
+    state: present
+
+- name: mysql remove anonymous users
+  mysql_user:
+    name: ''
+    host: "{{ item }}"
+    state: absent
+  with_items:
+    - localhost
+    - "{{ ansible_hostname }}"
+
+- name: sst user
+  mysql_user:
+    name: sst
+    password: 'sst'
+    host: '%'
+    priv: '*.*:RELOAD,LOCK TABLES,REPLICATION CLIENT'

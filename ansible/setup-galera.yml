@@ -1,0 +1,6 @@
+---
+- hosts: galera
+  gather_facts: true
+  remote_user: ubuntu
+  roles:
+    - galera

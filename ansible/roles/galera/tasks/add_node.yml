@@ -1,0 +1,16 @@
+- name: register current IP
+  set_fact:
+    current_ip: "{{ hostvars[inventory_hostname]['ansible_eth0']['ipv4']['address'] }}"
+
+- name: get incoming addresses from cluster
+  shell: |
+    mysql -e 'show status like "wsrep_incoming_addresses"\G'|awk '/Value/{print $2}'
+  register: wsrep_incoming_addresses
+  changed_when: "not wsrep_incoming_addresses.stdout|search('{{ current_ip }}')"
+
+- name: restart mysql
+  sudo: true
+  service:
+    name: mysql
+    state: restarted
+  when: "not wsrep_incoming_addresses.stdout|search('{{ current_ip }}')"

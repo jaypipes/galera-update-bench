@@ -1,0 +1,77 @@
+---
+- name: setup percona apt key
+  sudo: true
+  apt_key:
+    id: 1C4CBDCDCD2EFD2A
+    url: 'http://www.percona.com/redir/downloads/RPM-GPG-KEY-percona'
+    state: present
+
+- name: add percona apt repository
+  sudo: true
+  apt_repository:
+    repo: 'deb http://repo.percona.com/apt trusty main'
+    state: present
+
+- name: preseed all the debconf selections
+  sudo: true
+  debconf:
+    name: "{{ item.name }}"
+    question: "{{ item.question }}"
+    value: "{{ item.value }}"
+    vtype: "string"
+  with_items:
+      - question: "mysql-server/root_password"
+        name: "mysql-server"
+        value: "secrete"
+      - question: "mysql-server/root_password_again"
+        name: "mysql-server"
+        value: "secrete"
+
+- name: prevent galera from starting on install
+  sudo: true
+  copy:
+    src: "policy-rc.d"
+    dest: "/usr/sbin/policy-rc.d"
+    mode: "0755"
+
+- name: install limits config
+  sudo: true
+  copy:
+    src: "limits.conf"
+    dest: "/etc/security/limits.conf"
+
+- name: install PXC server
+  sudo: true
+  apt: 
+    pkg: "{{ item }}"
+    state: installed
+    update_cache: yes
+  with_items:
+    - percona-xtradb-cluster-server-5.6
+    - percona-xtradb-cluster-client-5.6
+    - python-mysqldb
+
+- name: write the mysql config file
+  sudo: true
+  template: 
+    src: wsrep.cnf.j2 
+    dest: /etc/mysql/my.cnf 
+    owner: root 
+    group: root 
+    mode: 0644
+
+- name: check for installed db
+  sudo: true
+  stat: path=/var/lib/mysql/mysql/db.MYD
+  register: db_file
+
+- name: run mysql_install_db
+  sudo: true
+  shell: mysql_install_db --user=mysql
+  when: db_file.stat.isfile is not defined
+
+- name: allow galera to start
+  sudo: true
+  file:
+    path: "/usr/sbin/policy-rc.d"
+    state: absent

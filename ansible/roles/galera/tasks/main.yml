@@ -1,0 +1,10 @@
+---
+- include: install.yml
+- name: bootstrap PXC
+  sudo: true
+  shell: sudo service mysql bootstrap-pxc
+  when: galera_bootstrap is defined
+- include: init-db.yml
+  when: galera_bootstrap is defined
+- include: add_node.yml
+  when: galera_bootstrap is not defined
