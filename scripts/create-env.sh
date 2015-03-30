@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # NOTE(jaypipes): This only tested on Ubuntu 14.04.
 
-set -e
+set -xe
 
 BASE_DIR=$(cd $(dirname "$0"); pwd)
 ANSIBLE_DIR=$( cd "$BASE_DIR/../ansible"; pwd)
@@ -21,15 +21,14 @@ fi
 if [[ ! `sudo lxc-info -n base-container` ]]; then
     echo "Creating base LXC container..."
 
-    sudo lxc-create -n base-container -t ubuntu-cloud -- --release=trusty -S $SSH_KEY
-    
+    sudo lxc-create -n base-container -t ubuntu-cloud -- --release=trusty --auth-key=$SSH_KEY
 fi
 
 echo "Creating LXC containers for Galera cluster..."
 
-sudo lxc-clone -o base-container -n galera1
-sudo lxc-clone -o base-container -n galera2
-sudo lxc-clone -o base-container -n galera3
+sudo lxc-clone -o base-container -n galera1 -- --auth-key=$SSH_KEY
+sudo lxc-clone -o base-container -n galera2 -- --auth-key=$SSH_KEY
+sudo lxc-clone -o base-container -n galera3 -- --auth-key=$SSH_KEY
 
 echo "Starting Galera containers..."
 
