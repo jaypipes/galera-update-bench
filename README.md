@@ -71,8 +71,40 @@ jaypipes@spearmint$ sudo lxc-attach -n galera1 -- mysql -uroot -e "show global s
 +--------------------------+--------------------------------------+
 ```
 
-To run the benchmark scripts, execute the `scripts/benchmark.sh` script:
-
 ```
+To run the benchmark scripts, install some packages and run `scripts/test.py` script:
 
+#installing help
+
+# installing apts
+apt-get install python-pip
+apt-get install python-dev
+apt-get install python-virtualenv
+apt-get install libmysqlclient-dev
+apt-get install git
+
+# creating venv (not necessary)
+virtualenv venv
+source venv/bin/activate
+
+# installing packages
+pip install python-handler-socket
+pip install functools32
+pip install netaddr
+pip install MySQL-python
+pip install oslo.db
+pip install retrying
+# pip install sqlalchemy
+pip uninstall sqlalchemy
+
+# how to get patched sqlalchemy for compare-and-swap
+git clone https://github.com/malor/sqlalchemy.git
+cd sqlalchemy
+git checkout a87b3c2101114d82f999c23d113ad2018629ed48
+pip install -e .
+
+# running benchmarks
+`scripts/example_run.sh` has an example how to run the tests
+
+number of processes (--processes), network size (--netsize), algorithm type (none or --cas), number of connection strings to galera nodes (--db) could be configured
 ```
