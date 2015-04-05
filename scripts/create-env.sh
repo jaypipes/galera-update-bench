@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# NOTE(jaypipes): This only tested on Ubuntu 14.04.
+# NOTE(jaypipes): This tested on Ubuntu 14.04 and Ubuntu 14.10.
 
 set -e
 
@@ -7,39 +7,50 @@ BASE_DIR=$(cd $(dirname "$0"); pwd)
 ANSIBLE_DIR=$( cd "$BASE_DIR/../ansible"; pwd)
 SSH_KEY=${SSH_KEY:-"$HOME/.ssh/id_rsa.pub"}
 
-echo "Installing Ansible, LXC and all dependencies..."
 
+# Check that ansible is installed and if not, install it and its dependencies.
 if [[ ! `which ansible` ]]; then
-    # Check that ansible is installed and if not, install it and its dependencies.
-    sudo apt-add-repository -y ppa:ansible/ansible
-    sudo apt-get update
+    # Ubuntu Utopic and beyond have Ansible available in the Ubuntu
+    # package repositories. No need for the ansible PPA..
+    if [[ `lsb_release -a 2>/dev/null | grep Codename | awk '{print $2}'` = 'trusty' ]]; then
+        sudo apt-add-repository -y ppa:ansible/ansible
+        sudo apt-get update
+    fi
+    echo "Installing Ansible, LXC and all dependencies..."
+    sudo apt-get -y install ansible > /dev/null
+fi
+
+# Check if LXC is installed and if not, install it and its dependencies
+if [[ ! `which lxc-info` ]]; then
     sudo apt-get -y install git python-all python-dev curl autoconf\
         g++ python2.7-dev software-properties-common ansible\
         lxc lxc-templates cloud-image-utils cloud-utils debootstrap cdebootstrap
 fi
 
-if [[ ! `sudo lxc-info -n base-container` ]]; then
-    echo "Creating base LXC container..."
-
+if [[ ! `sudo lxc-info -n base-container 2> /dev/null` ]]; then
     sudo lxc-create -n base-container -t ubuntu-cloud -- --release=trusty -S $SSH_KEY
-    
 fi
 
-echo "Creating LXC containers for Galera cluster..."
+for i in 1 2 3; do
+    if [[ ! `sudo lxc-info -n galera$i 2> /dev/null` ]]; then
+        sudo lxc-clone -o base-container -n galera$i
+    fi
+done
 
-sudo lxc-clone -o base-container -n galera1
-sudo lxc-clone -o base-container -n galera2
-sudo lxc-clone -o base-container -n galera3
 
-echo "Starting Galera containers..."
-
-sudo lxc-start -n galera1 -d
-sudo lxc-start -n galera2 -d
-sudo lxc-start -n galera3 -d
-
-echo "Collecting Galera container IP addresses..."
-
-sleep 30
+for i in 1 2 3; do
+    if [[ `sudo lxc-info -s -H -n galera$i 2> /dev/null` != 'RUNNING' ]]; then
+        sudo lxc-start -n galera$i -d
+        # Wait until an IP address has been assigned to the container
+        NEXT_WAIT_TIME=0
+        until [[ `sudo lxc-info -H -i -n galera$i` != '' || $NEXT_WAIT_TIME -eq 4 ]]; do
+            sleep $(( NEXT_WAIT_TIME++ ))
+        done
+        echo "Started Galera cluster node container #$i..."
+    else
+        echo "Galera cluster node container #$i already running..."
+    fi
+done
 
 GALERA1_IP=`sudo lxc-info -i -H -n galera1`
 GALERA2_IP=`sudo lxc-info -i -H -n galera2`
@@ -54,8 +65,14 @@ EOF
 
 sudo lxc-ls --fancy
 
-echo "Adding host keys for LXC containers..."
-
-ssh-keyscan -H $GALERA1_IP >> $HOME/.ssh/known_hosts
-ssh-keyscan -H $GALERA2_IP >> $HOME/.ssh/known_hosts
-ssh-keyscan -H $GALERA3_IP >> $HOME/.ssh/known_hosts
+for i in 1 2 3; do
+    # Wait until the host route is found and add the host key to the
+    # list of local known hosts.
+    THIS_CONTAINER_IP=`sudo lxc-info -i -H -n galera$i`
+    NEXT_WAIT_TIME=0
+    until [[ `ssh-keyscan $THIS_CONTAINER_IP &> /dev/null` || $NEXT_WAIT_TIME -eq 4 ]]; do
+        sleep $(( NEXT_WAIT_TIME++ ))
+    done
+    ssh-keyscan -t rsa $THIS_CONTAINER_IP 2> /dev/null >> $HOME/.ssh/known_hosts
+    echo "Added host keys for Galera cluster node container #$i..."
+done
