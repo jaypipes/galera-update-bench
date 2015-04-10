@@ -33,7 +33,7 @@ fi
 
 for i in 1 2 3; do
     if [[ ! `sudo lxc-info -n galera$i 2> /dev/null` ]]; then
-        sudo lxc-clone -o base-container -n galera$i
+        sudo lxc-clone -o base-container -n galera$i -- -S $SSH_KEY
     fi
 done
 
