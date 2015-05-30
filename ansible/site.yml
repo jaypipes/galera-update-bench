@@ -1,0 +1,3 @@
+---
+- include: setup-galera.yml
+- include: setup-haproxy.yml

@@ -1,0 +1,56 @@
+global
+    log 127.0.0.1 local0
+    log 127.0.0.1 local1 notice
+    maxconn 65000
+    daemon
+    stats socket /tmp/haproxy.sock
+
+defaults
+    log global
+    mode tcp
+    option tcplog
+    option dontlognull
+    retries 3
+    option redispatch
+    timeout client 28801000
+    timeout connect 28810000
+    timeout server 28820000
+
+frontend stats-front
+    bind *:8080
+    mode http
+    default_backend stats-back
+
+backend stats-back
+    mode http
+    balance roundrobin
+    stats uri /haproxy/stats
+    stats auth galera:galera
+
+frontend galera-front
+    bind *:3307
+    mode tcp
+    default_backend galera-back
+
+frontend galera-single-writer-front
+    bind *:3306
+    mode tcp
+    default_backend galera-single-writer-back
+
+backend galera-back
+    mode tcp
+    balance leastconn
+    option httpchk
+    default-server on-marked-down shutdown-sessions on-marked-up shutdown-backup-sessions
+{% for host in groups['galera'] %}
+    server galera{{ loop.index }} {{ hostvars[host]["ansible_eth0"]["ipv4"]["address"] }}:3306 maxconn 20000
+{% endfor %}
+
+backend galera-single-writer-back
+    mode tcp
+    balance leastconn
+    option httpchk
+    default-server on-marked-down shutdown-sessions on-marked-up shutdown-backup-sessions
+{% for host in groups['galera'] %}
+    server galera{{ loop.index }} {{ hostvars[host]["ansible_eth0"]["ipv4"]["address"] }}:3306 maxconn 20000 {% if not loop.first %} backup{% endif %}
+{% endfor %}

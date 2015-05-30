@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
-# NOTE(jaypipes): This only tested on Ubuntu 14.04.
+# NOTE(jaypipes): This tested on Ubuntu 14.04 and 14.10.
 
 set -e
 
-echo "Stopping Galera containers..."
+echo "Stopping containers..."
 
 sudo lxc-stop -n galera1
 sudo lxc-stop -n galera2
 sudo lxc-stop -n galera3
+sudo lxc-stop -n haproxy
 
-echo "Destroying Galera containers..."
+echo "Destroying containers..."
 
 sudo lxc-destroy -n galera1
 sudo lxc-destroy -n galera2
 sudo lxc-destroy -n galera3
+sudo lxc-destroy -n haproxy
 
 echo "Removing any old LXC container known_hosts entries..."
 

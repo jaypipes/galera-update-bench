@@ -1,8 +1,9 @@
 Usage
 -----
 
-This repository sets up 3 LXC containers containing a Galera cluster, and
-can run a set of benchmarks against the Galera cluster.
+This repository sets up 3 LXC containers containing a Galera cluster, a
+container running HAProxy, and can run a set of benchmarks against the Galera
+cluster.
 
 To set up the LXC containers, run the create-env.sh script after pulling
 this repository:
@@ -11,22 +12,28 @@ this repository:
 git clone git@github.com:jaypipes/galera-update-bench
 cd galera-update-bench
 ./scripts/create-env.sh
-pushd ansible
-ansible-playbook -i hosts setup-galera.yml
-popd
 ```
 
-Once completed, you can see the IP addresses the three LXC containers
-have using `lxc-ls --fancy`:
+Output of the `create-env.sh` script should look something like the following:
 
 ```
-jaypipes@spearmint$ sudo lxc-ls --fancy
-NAME            STATE    IPV4        IPV6  AUTOSTART  
-----------------------------------------------------
-base-container  STOPPED  -           -     NO         
-galera1         RUNNING  10.0.3.96   -     NO         
-galera2         RUNNING  10.0.3.172  -     NO         
-galera3         RUNNING  10.0.3.143  -     NO
+jaypipes@minty:~/repos/galera-update-bench$ ./scripts/create-env.sh 
+[sudo] password for jaypipes: 
+Started haproxy container...
+Started Galera cluster node container #1...
+Started Galera cluster node container #2...
+Started Galera cluster node container #3...
+NAME            STATE    IPV4        IPV6  GROUPS  AUTOSTART  
+------------------------------------------------------------
+base-container  STOPPED  -           -     -       NO         
+galera1         RUNNING  10.0.3.245  -     -       NO         
+galera2         RUNNING  10.0.3.19   -     -       NO         
+galera3         RUNNING  10.0.3.101  -     -       NO         
+haproxy         RUNNING  10.0.3.74   -     -       NO         
+Added host keys for haproxy cluster node container...
+Added host keys for Galera cluster node container #1...
+Added host keys for Galera cluster node container #2...
+Added host keys for Galera cluster node container #3...
 ```
 
 Note that the `create-env.sh` script automatically adds the host keys
@@ -34,7 +41,7 @@ for each of the LXC containers to your SSH `known_hosts` file, so to
 log into one of the Galera LXC nodes, simply SSH to it as the ubuntu user:
 
 ```
-jaypipes@spearmint$ ssh ubuntu@10.0.3.96
+jaypipes@spearmint$ ssh ubuntu@10.0.3.245
 Welcome to Ubuntu 14.04.1 LTS (GNU/Linux 3.13.0-37-generic x86_64)
 
  * Documentation:  https://help.ubuntu.com/
@@ -43,7 +50,7 @@ Welcome to Ubuntu 14.04.1 LTS (GNU/Linux 3.13.0-37-generic x86_64)
 
   System load:  0.33             Processes:           26
   Usage of /:   2.0% of 1.61TB   Users logged in:     0
-  Memory usage: 35%              IP address for eth0: 10.0.3.96
+  Memory usage: 35%              IP address for eth0: 10.0.3.245
   Swap usage:   0%
 
   Graph this data and manage this system at:
@@ -54,6 +61,15 @@ Welcome to Ubuntu 14.04.1 LTS (GNU/Linux 3.13.0-37-generic x86_64)
 
 
 Last login: Sun Feb 22 20:30:03 2015 from 10.0.3.1
+```
+
+Once the LXC containers are ready, you can install the Galera and HAProxy
+software within the containers using the Ansible playbooks:
+
+```
+pushd ansible
+ansible-playbook -i hosts site.yml
+popd
 ```
 
 You may execute commands, including checking for the status of

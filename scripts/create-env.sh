@@ -31,12 +31,21 @@ if [[ ! `sudo lxc-info -n base-container 2> /dev/null` ]]; then
     sudo lxc-create -n base-container -t ubuntu-cloud -- --release=trusty -S $SSH_KEY
 fi
 
+if [[ ! `sudo lxc-info -n haproxy 2> /dev/null` ]]; then
+    sudo lxc-clone -o base-container -n haproxy -- -S $SSH_KEY
+fi
+if [[ `sudo lxc-info -s -H -n haproxy 2> /dev/null` != 'RUNNING' ]]; then
+    sudo lxc-start -n haproxy -d
+    echo "Started haproxy container..."
+else
+    echo "HAproxy container already running..."
+fi
+
 for i in 1 2 3; do
     if [[ ! `sudo lxc-info -n galera$i 2> /dev/null` ]]; then
         sudo lxc-clone -o base-container -n galera$i -- -S $SSH_KEY
     fi
 done
-
 
 for i in 1 2 3; do
     if [[ `sudo lxc-info -s -H -n galera$i 2> /dev/null` != 'RUNNING' ]]; then
@@ -52,6 +61,7 @@ for i in 1 2 3; do
     fi
 done
 
+HAPROXY_IP=`sudo lxc-info -i -H -n haproxy`
 GALERA1_IP=`sudo lxc-info -i -H -n galera1`
 GALERA2_IP=`sudo lxc-info -i -H -n galera2`
 GALERA3_IP=`sudo lxc-info -i -H -n galera3`
@@ -61,9 +71,18 @@ cat > "$ANSIBLE_DIR/hosts" <<EOF
 $GALERA1_IP galera_bootstrap=1
 $GALERA2_IP
 $GALERA3_IP
+
+[haproxy]
+$HAPROXY_IP
 EOF
 
 sudo lxc-ls --fancy
+NEXT_WAIT_TIME=0
+until [[ `ssh-keyscan $HAPROXY_IP &> /dev/null` || $NEXT_WAIT_TIME -eq 4 ]]; do
+    sleep $(( NEXT_WAIT_TIME++ ))
+done
+ssh-keyscan -t rsa $HAPROXY_IP 2> /dev/null >> $HOME/.ssh/known_hosts
+echo "Added host keys for haproxy cluster node container..."
 
 for i in 1 2 3; do
     # Wait until the host route is found and add the host key to the
