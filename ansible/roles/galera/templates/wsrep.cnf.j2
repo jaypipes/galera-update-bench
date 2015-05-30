@@ -33,7 +33,7 @@ max_connect_errors = 999999999999
 
 wsrep_provider = /usr/lib/galera3/libgalera_smm.so
 wsrep_cluster_address = "gcomm://{% for host in groups['galera'] %}{% if not loop.first %},{% endif %}{{ hostvars[host]["ansible_eth0"]["ipv4"]["address"] }}{% endfor %}"
-wsrep_slave_threads = 2
+wsrep_slave_threads = 3
 wsrep_cluster_name = galera_bench
 wsrep_sst_method = xtrabackup-v2
 wsrep_node_name = {{ ansible_hostname }}
